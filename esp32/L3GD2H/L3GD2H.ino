@@ -3,12 +3,15 @@
 #define SDA_PIN 21
 #define SCL_PIN 22
 #define DATA_SIZE 16
+#define X_DEVIATION 2.5
+#define Y_DEVIATION 2.0
 
 const byte L3GD2H = 0x6A;
 
 float senser_data_x[DATA_SIZE], senser_data_y[DATA_SIZE];
 int head = -3;
 float ave_x, ave_y;
+int out = 0;
 
 // レジスタの値を読み取る関数(メモリアドレス)
 byte readRegister(byte address) {
@@ -36,7 +39,6 @@ float getAverage(float senser_data[]) {
   for (int i = 0; i < DATA_SIZE; i++) {
     sum += senser_data[i];
   }
-  Serial.println(sum);
   return sum / DATA_SIZE;
 }
 
@@ -60,33 +62,54 @@ void loop() {
   byte l, h; // l:last, h:header
   byte xr, yr;
   float x, y;
-
+  bool flagx, flagy, flag;
+  
   // xの角速度の値の求める  
   l = readRegister(0x28);
   h = readRegister(0x29);
   xr = h << 8 | l;
   x = (float) xr * 0.07;
-  Serial.print(x);
-  Serial.print(",");
 
   // yの角速度の値の求める
   l = readRegister(0x2A);
   h = readRegister(0x2B);
   yr = h << 8 | l;
   y = (float) yr * 0.07;
-  Serial.println(y);
 
-  // DATA_SIZEの数のセンサーの値が求められたら平均値を求める
   if (head == DATA_SIZE) { // DATA_SIZEの数のセンサーの値が求められたとき
     ave_x = getAverage(senser_data_x);
     ave_y = getAverage(senser_data_y);
     head = DATA_SIZE + 1;
+    return;
   } else if(head < DATA_SIZE) {
     head++;
     // 最初の16個のx,yの値を記録する
     if (head >= 0) { // まだセンサーの値が足りないときセンサーの値を配列に記録する
       senser_data_x[head] = x;
       senser_data_y[head] = y;
+    }
+    delay(500);
+    return;
+  }
+  
+  // センサーの初期の平均値が求まったあと
+  // x, yの角速度の結果を出力する    
+  Serial.print(x);
+  Serial.print(",");
+  Serial.println(y);
+    
+  // x, yの角速度が大幅に変動したことを確認する
+  flagx = ((ave_x + X_DEVIATION) < x) || ((ave_x - X_DEVIATION) > x);
+  flagy = ((ave_y + Y_DEVIATION) < y) || ((ave_y - Y_DEVIATION) > y);
+  flag  = flagx && flagy;
+  if (flag) { // x, y軸の角速度の両方が大幅に変動したとき
+    Serial.println("HIT!!");
+  } else {
+    if (flagx) { // X軸の角速度の値が大幅に変動したとき
+      Serial.println("X !!");
+    }   
+    if (flagy) { // y軸の角速度の値が大幅に変動したとき
+      Serial.println("Y !!"); 
     }
   }
     
