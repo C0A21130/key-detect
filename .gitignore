@@ -168,7 +168,5 @@ Platforms/
 Resources/
 
 # .net MAUI for Android file
-*.xaml.cs
 *.csproj
 *.csproj.user
-key-detect-android.sln
