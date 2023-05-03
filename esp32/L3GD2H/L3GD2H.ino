@@ -1,17 +1,18 @@
 #include <Wire.h>
+#include <BluetoothSerial.h>
 
 #define SDA_PIN 21
 #define SCL_PIN 22
 #define DATA_SIZE 16
 #define X_DEVIATION 2.5
 #define Y_DEVIATION 2.0
-
 const byte L3GD2H = 0x6A;
 
 float senser_data_x[DATA_SIZE], senser_data_y[DATA_SIZE];
 int head = -3;
 float ave_x, ave_y;
-int out = 0;
+bool key_status = false;
+BluetoothSerial SerialBT;
 
 // レジスタの値を読み取る関数(メモリアドレス)
 byte readRegister(byte address) {
@@ -44,16 +45,20 @@ float getAverage(float senser_data[]) {
 
 
 void setup() {
-  pinMode(SDA_PIN, INPUT_PULLUP);
-  pinMode(SCL_PIN, INPUT_PULLUP);
-  // I2C通信の開始
-  Wire.begin();
   Serial.begin(9600);
   
+  // ジャイロセンサーと通信の開始
+  Wire.begin();
   byte who_i_am = readRegister(0x0F);
   Serial.println(who_i_am, HEX);
+  writeRegister(0x20, 0x0F); // ジャイロセンサーの設定(CTRL1をDR:0,BW:0,PD:NormalMode,Z/y/X:Default)
+  
+  // SDA, SCLの内部プルアップを明示
+  pinMode(SDA_PIN, INPUT_PULLUP);
+  pinMode(SCL_PIN, INPUT_PULLUP);
 
-  writeRegister(0x20, 0x0F);
+  // Blouetoothの開始
+  SerialBT.begin("ESP32test");
 
   Serial.println("x,y");
 }
@@ -104,6 +109,7 @@ void loop() {
   flag  = flagx && flagy;
   if (flag) { // x, y軸の角速度の両方が大幅に変動したとき
     Serial.println("HIT!!");
+    key_status = key_status ? false : true;
   } else {
     if (flagx) { // X軸の角速度の値が大幅に変動したとき
       Serial.println("X !!");
@@ -111,6 +117,11 @@ void loop() {
     if (flagy) { // y軸の角速度の値が大幅に変動したとき
       Serial.println("Y !!"); 
     }
+  }
+
+  // もし鍵が置いてあれば通知する
+  if (key_status) {
+    SerialBT.println("HIT!!");
   }
     
   delay(1000);
