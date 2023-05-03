@@ -1,5 +1,5 @@
 #include <Wire.h>
-#include <BluetoothSerial.h>
+#include <WiFi.h>
 
 #define SDA_PIN 21
 #define SCL_PIN 22
@@ -7,12 +7,14 @@
 #define X_DEVIATION 2.5
 #define Y_DEVIATION 2.0
 const byte L3GD2H = 0x6A;
+const char* ssid = "<MY_SSID>";
+const char* passwd = "<MY_PASSWORD>";
 
 float senser_data_x[DATA_SIZE], senser_data_y[DATA_SIZE];
 int head = -3;
 float ave_x, ave_y;
 bool key_status = false;
-BluetoothSerial SerialBT;
+WiFiServer server(80);
 
 // レジスタの値を読み取る関数(メモリアドレス)
 byte readRegister(byte address) {
@@ -43,6 +45,15 @@ float getAverage(float senser_data[]) {
   return sum / DATA_SIZE;
 }
 
+// 鍵の情報をjsonで返却する関数(鍵を置いてある・置いてない)
+String handleJson(bool key_statsu) {
+  String json;
+  if (key_status) { // 鍵が置いてあるとき
+    return json = "{\"status\" : \"HIT\"}";
+  } else { // 鍵が置いてないとき
+    return json = "{\"status\" : \"NO\"}";
+  }
+}
 
 void setup() {
   Serial.begin(9600);
@@ -57,8 +68,15 @@ void setup() {
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
 
-  // Blouetoothの開始
-  SerialBT.begin("ESP32test");
+  // WebServerの開始
+  WiFi.begin(ssid, passwd);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+  server.begin();
 
   Serial.println("x,y");
 }
@@ -68,6 +86,7 @@ void loop() {
   byte xr, yr;
   float x, y;
   bool flagx, flagy, flag;
+  WiFiClient client = server.available();
   
   // xの角速度の値の求める  
   l = readRegister(0x28);
@@ -120,8 +139,8 @@ void loop() {
   }
 
   // もし鍵が置いてあれば通知する
-  if (key_status) {
-    SerialBT.println("HIT!!");
+  if (client) {
+    client.println(handleJson(key_status));
   }
     
   delay(1000);
