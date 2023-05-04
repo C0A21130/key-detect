@@ -14,7 +14,7 @@ public partial class MainPage : ContentPage
 	JsonSerializerOptions options;
 
     int count = 0;
-    public KeyStatus keyStatus { get; private set; }
+    public KeyStatus KeyStatus { get; private set; }
 
 	public MainPage()
 	{
@@ -36,25 +36,26 @@ public partial class MainPage : ContentPage
     private async void KeyStatusClicked(object sender, EventArgs e)
     {
 		var status = await GetStatus();
-		KeyStatusBtn.Text = status.ToString();
+		KeyStatusBtn.Text = status.status;
+		Debug.WriteLine(status);
         SemanticScreenReader.Announce(KeyStatusBtn.Text);
     }
 
     public async Task<KeyStatus> GetStatus() 
 	{
-		keyStatus = new KeyStatus();
+		KeyStatus = new KeyStatus();
 		try
 		{
 			HttpResponseMessage response = await client.GetAsync("http://192.168.2.128:80");
 			string json = await response.Content.ReadAsStringAsync();
-			keyStatus = JsonSerializer.Deserialize<KeyStatus>(json, options);
+			KeyStatus = JsonSerializer.Deserialize<KeyStatus>(json, options);
 		}
 		catch (Exception ex)
 		{
-			Debug.WriteLine(@"\tERROR: {0}", ex.Message);
+			Debug.WriteLine(ex.Message);
 		}
 
-		return keyStatus;
+		return KeyStatus;
 		
 	}
 }

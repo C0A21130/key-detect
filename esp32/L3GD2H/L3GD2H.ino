@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <WiFi.h>
+#include <WebServer.h>
 
 #define SDA_PIN 21
 #define SCL_PIN 22
@@ -14,7 +15,7 @@ float senser_data_x[DATA_SIZE], senser_data_y[DATA_SIZE];
 int head = -3;
 float ave_x, ave_y;
 bool key_status = false;
-WiFiServer server(80);
+WebServer server(80);
 
 // レジスタの値を読み取る関数(メモリアドレス)
 byte readRegister(byte address) {
@@ -46,13 +47,18 @@ float getAverage(float senser_data[]) {
 }
 
 // 鍵の情報をjsonで返却する関数(鍵を置いてある・置いてない)
-String handleJson(bool key_statsu) {
+void handleJson() {
   String json;
   if (key_status) { // 鍵が置いてあるとき
-    return json = "{\"status\" : \"HIT\"}";
+    json = "{\"status\" : \"HIT\"}";
   } else { // 鍵が置いてないとき
-    return json = "{\"status\" : \"NO\"}";
+    json = "{\"status\" : \"NO\"}";
   }
+  server.send(200, "application/json", json);
+}
+
+void handleNotFound(void) {
+  server.send(404, "application/json", "{\"status\" : \"ERROR\"}");
 }
 
 void setup() {
@@ -76,6 +82,8 @@ void setup() {
   }
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
+  server.on("/", handleJson);
+  server.onNotFound(handleNotFound);
   server.begin();
 
   Serial.println("x,y");
@@ -86,7 +94,6 @@ void loop() {
   byte xr, yr;
   float x, y;
   bool flagx, flagy, flag;
-  WiFiClient client = server.available();
   
   // xの角速度の値の求める  
   l = readRegister(0x28);
@@ -138,10 +145,8 @@ void loop() {
     }
   }
 
-  // もし鍵が置いてあれば通知する
-  if (client) {
-    client.println(handleJson(key_status));
-  }
+  // クライエントからのアクセスを処理
+  server.handleClient();
     
   delay(1000);
 }
